@@ -2700,8 +2700,13 @@ function buildDiscardItem(discard, isBest) {
   info.appendChild(head);
 
   const stats = document.createElement("span");
-  stats.textContent = `→ ${shantenLabel(discard.shanten_after)} · ` +
+  let statsText = `→ ${shantenLabel(discard.shanten_after)} · ` +
     `${discard.ukeire_count} ${t("ukeire")} (${discard.ukeire.length})`;
+  // EV model (Phase 3): show estimated win rate when available.
+  if (typeof discard.win_p === "number") {
+    statsText += ` · ~${Math.round(discard.win_p * 100)}% win`;
+  }
+  stats.textContent = statsText;
   info.appendChild(stats);
 
   if (discard.danger) {

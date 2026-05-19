@@ -6,6 +6,14 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
 from .defense import TileDanger, assess_tile_danger
+from .evaluation import (
+    discard_expected_value,
+    draws_left,
+    estimate_opponent_value,
+    estimate_self_value,
+    weighted_acceptance,
+    win_probability,
+)
 from .game import GameState, dora_tiles
 from .han import estimate_all_han
 from .shanten import (
@@ -30,9 +38,17 @@ class DiscardCandidate:
     ukeire_count: int = 0
     danger: Optional[TileDanger] = None
     combined_score: float = 0.0
-    """Higher = better. Combines tile-efficiency and danger when available."""
+    """Higher = better. 0..100 display score derived from the EV ranking."""
     is_dora: bool = False
     """True when discarding this tile gives up an active dora."""
+    acceptance_quality: float = 0.0
+    """Two-step weighted acceptance (ukeire²) of the resulting shape."""
+    win_p: Optional[float] = None
+    """Estimated probability this resulting shape eventually wins."""
+    value_estimate: Optional[int] = None
+    """Estimated points if the hand is completed (han→points)."""
+    expected_value: Optional[float] = None
+    """EV in points: win_p*self_value − Σ dealin_p*opponent_value."""
 
     def to_dict(self) -> dict:
         return {
@@ -47,6 +63,14 @@ class DiscardCandidate:
             "danger": self.danger.to_dict() if self.danger else None,
             "combined_score": round(self.combined_score, 2),
             "is_dora": self.is_dora,
+            "acceptance_quality": round(self.acceptance_quality, 1),
+            "win_p": round(self.win_p, 4) if self.win_p is not None else None,
+            "value_estimate": self.value_estimate,
+            "expected_value": (
+                round(self.expected_value, 1)
+                if self.expected_value is not None
+                else None
+            ),
         }
 
 
@@ -186,6 +210,7 @@ def analyze_game(state: GameState) -> dict:
         visible=visible,
         remaining=remaining,
         open_melds_count=open_melds_count,
+        han_estimates=han_estimates,
     )
     best = candidates[0] if candidates else None
     payload["discards"] = [c.to_dict() for c in candidates]
@@ -226,11 +251,40 @@ def _ranked_discards_with_defense(
     visible: Sequence[int],
     remaining: Sequence[int],
     open_melds_count: int = 0,
+    han_estimates: Optional[List[dict]] = None,
 ) -> List[DiscardCandidate]:
+    """Rank every distinct discard by **expected value**.
+
+        EV = P(win | resulting shape) * value(our hand)
+             - Σ_opponent P(deal in) * value(opponent)
+
+    With nobody threatening, the cost term is tiny and EV tracks pure
+    efficiency (shanten dominates via the win-probability curve). When an
+    opponent is in riichi the cost term is real points, so dangerous tiles
+    are folded and safe ones pushed — a genuine push/fold decision rather
+    than the old fixed efficiency/safety blend.
+    """
     from .game import dora_tile_for
+
     dora_set = set(dora_tile_for(t) for t in state.dora_indicators)
-    out: List[DiscardCandidate] = []
-    any_riichi = any(opp.riichi for opp in state.opponents)
+    is_closed = (
+        all(m.type == "ankan" for m in state.user.melds)
+        or len(state.user.melds) == 0
+    )
+    han_estimates = han_estimates or estimate_all_han(state)
+    draws = draws_left(state)
+
+    # Opponent (value, riichi) is independent of which tile we drop.
+    opp_meta = [
+        (
+            estimate_opponent_value(state, han_estimates, seat),
+            state.player(seat).riichi,
+        )
+        for seat in (1, 2, 3)
+    ]
+
+    # Pass 1: shanten / ukeire / danger for every candidate.
+    raw: List[tuple[int, int, dict, TileDanger]] = []
     for tid in range(NUM_TILES):
         if counts[tid] == 0:
             continue
@@ -244,54 +298,76 @@ def _ranked_discards_with_defense(
         )
         counts[tid] += 1
         danger = assess_tile_danger(tid, state, visible)
+        raw.append((tid, shanten, uke, danger))
+
+    if not raw:
+        return []
+    min_shanten = min(sh for _, sh, _, _ in raw)
+    self_value = estimate_self_value(
+        state, han_estimates, min_shanten, is_closed=is_closed
+    )
+
+    out: List[DiscardCandidate] = []
+    for tid, shanten, uke, danger in raw:
+        uke_count = total_ukeire(uke)
+        # The 2-step expansion is the expensive part — only run it for the
+        # shapes that can realistically be chosen (best shanten, plus the
+        # one-worse tier that matters for fold decisions).
+        if shanten <= min_shanten + 1:
+            counts[tid] -= 1
+            _, quality = weighted_acceptance(
+                counts, remaining, open_melds_count, shanten
+            )
+            counts[tid] += 1
+        else:
+            quality = float(uke_count)
+
+        win_p = win_probability(
+            shanten, uke_count, quality, draws, is_closed=is_closed
+        )
+        per_opp = [
+            (
+                next(
+                    (
+                        o.score
+                        for o in danger.per_opponent
+                        if o.seat == seat
+                    ),
+                    danger.score,
+                ),
+                opp_meta[seat - 1][0],
+                opp_meta[seat - 1][1],
+            )
+            for seat in (1, 2, 3)
+        ]
+        ev = discard_expected_value(win_p, self_value, per_opp)
+
         cand = DiscardCandidate(
             tile_id=tid,
             tile_code=tile_code(tid),
             shanten_after=shanten,
             ukeire=uke,
-            ukeire_count=total_ukeire(uke),
+            ukeire_count=uke_count,
             danger=danger,
+            acceptance_quality=quality,
+            win_p=win_p,
+            value_estimate=self_value,
+            expected_value=ev.ev,
         )
-        # Surface a dora warning on the candidate so the UI can show it.
         cand.is_dora = tid in dora_set
-        cand.combined_score = _combined_score(cand, push_mode=not any_riichi)
-        # Discarding a dora costs value; nudge the score down as a soft warning.
-        if cand.is_dora and shanten > -1:
-            cand.combined_score -= 5
         out.append(cand)
-    if any_riichi:
-        # When any opponent is in riichi, weight defense more heavily by
-        # secondary-sorting on danger after shanten.
-        out.sort(
-            key=lambda c: (
-                c.shanten_after,
-                c.danger.score if c.danger else 0,
-                -c.ukeire_count,
-                c.tile_id,
-            )
-        )
-    else:
-        out.sort(key=lambda c: (c.shanten_after, -c.ukeire_count, c.tile_id))
+
+    # Best EV first; ties broken deterministically by tile id.
+    out.sort(key=lambda c: (-(c.expected_value or 0.0), c.tile_id))
+
+    # Map EV onto a 0..100 display score (best = 100). Keeps the UI's
+    # existing `combined_score` field meaningful without leaking raw points.
+    evs = [c.expected_value or 0.0 for c in out]
+    hi, lo = max(evs), min(evs)
+    span = (hi - lo) or 1.0
+    for c in out:
+        c.combined_score = round(100.0 * ((c.expected_value or 0.0) - lo) / span, 2)
     return out
-
-
-def _combined_score(cand: DiscardCandidate, push_mode: bool) -> float:
-    """A single 0..100 'goodness' number used for tie-breaking and display.
-
-    push_mode = True: weight efficiency more (no riichi pressure).
-    push_mode = False: at least one opponent in riichi -> weight defense more.
-    """
-    safety = 100 - (cand.danger.score if cand.danger else 0)
-    # Efficiency component: 0..100. Tenpai/agari = 100; otherwise scaled by ukeire.
-    if cand.shanten_after < 0:
-        eff = 100
-    elif cand.shanten_after == 0:
-        eff = min(100, 50 + cand.ukeire_count * 4)
-    else:
-        eff = max(0, 80 - cand.shanten_after * 12 - max(0, 12 - cand.ukeire_count))
-    if push_mode:
-        return 0.7 * eff + 0.3 * safety
-    return 0.4 * eff + 0.6 * safety
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +457,11 @@ def _explain_14_with_defense(
         f"Best discard: {tile_short_name(best.tile_id)} → {after} "
         f"with {best.ukeire_count} ukeire ({len(best.ukeire)} kinds){danger_part}."
     )
+    if best.win_p is not None and best.value_estimate is not None:
+        parts.append(
+            f"Estimated win rate ≈ {round(best.win_p * 100)}% at "
+            f"~{best.value_estimate} pts (EV-ranked)."
+        )
     if yaku_info and yaku_info.get("directions"):
         top_dir = yaku_info["directions"][0]
         parts.append(

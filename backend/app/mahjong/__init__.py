@@ -27,6 +27,15 @@ from .analyzer import (
 from .game import GameState, PlayerState, Meld, dora_tile_for, dora_tiles
 from .defense import TileDanger, OpponentDanger, assess_tile_danger
 from .visibility import visible_counts, remaining_counts
+from .evaluation import (
+    weighted_acceptance,
+    win_probability,
+    points_for_han,
+    estimate_self_value,
+    estimate_opponent_value,
+    dealin_probability,
+    discard_expected_value,
+)
 from .calls import CallOption, analyze_call
 from .yaku import YakuDirection, analyze_yaku_directions
 from .han import HanEstimate, estimate_all_han
@@ -70,6 +79,13 @@ __all__ = [
     "assess_tile_danger",
     "visible_counts",
     "remaining_counts",
+    "weighted_acceptance",
+    "win_probability",
+    "points_for_han",
+    "estimate_self_value",
+    "estimate_opponent_value",
+    "dealin_probability",
+    "discard_expected_value",
     "CallOption",
     "analyze_call",
     "YakuDirection",

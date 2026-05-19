@@ -147,6 +147,38 @@ def _hand_is_closed(state: GameState) -> bool:
     return all(m.type == "ankan" for m in state.user.melds) or len(state.user.melds) == 0
 
 
+# Open-hand yaku that survive losing menzen. Closed-only yaku (riichi,
+# pinfu, menzen tsumo, iipeikou) are intentionally excluded — the whole
+# point of the gate is that opening the hand throws those away.
+_OPEN_YAKU_NAMES = {"tanyao", "honitsu", "chinitsu", "toitoi", "honroutou"}
+
+
+def _open_yaku_path(state: GameState, tile_id: int) -> bool:
+    """Whether the user would still have a realistic yaku if they open the
+    hand on ``tile_id``.
+
+    Calling chi/pon strips every closed-only yaku, so a beginner who melds
+    "for speed" with no open yaku ends up **unable to win** (no yaku =
+    no win). This is the single most common weak-AI / beginner mistake, so
+    the call analyser refuses to *recommend* such calls.
+
+    Heuristic: the meld itself is yakuhai, OR the yaku-direction detector
+    still sees an open-hand yaku route with non-trivial confidence.
+    """
+    if _is_yakuhai(state, tile_id):
+        return True
+    from .yaku import analyze_yaku_directions
+
+    info = analyze_yaku_directions(state, min_confidence=1)
+    for d in info["directions"]:
+        name = d["name"]
+        if (name in _OPEN_YAKU_NAMES or name.startswith("yakuhai")) and d[
+            "confidence"
+        ] >= 40:
+            return True
+    return False
+
+
 def _analyze_pon(
     state: GameState,
     counts: list[int],
@@ -186,16 +218,26 @@ def _analyze_pon(
         score -= 25
         opt.notes.append("Shanten gets worse.")
 
-    if _hand_is_closed(state) and not yakuhai and sh_before > 1:
-        score -= 25
-        opt.notes.append("Opens a closed hand without an obvious yaku — risky.")
+    # Pon always opens the hand (it is never concealed). If the resulting
+    # open hand has no yaku route the call is a trap — you literally cannot
+    # win — so it must never be recommended regardless of speed.
+    opens_hand = _hand_is_closed(state)
+    yaku_ok = (not opens_hand) or _open_yaku_path(state, tile_id)
+    if opens_hand and not yaku_ok:
+        score -= 35
+        opt.notes.append(
+            "Opens a closed hand with no yaku route — you would be unable "
+            "to win. Usually pass."
+        )
     if any_riichi:
         score -= 20
         opt.notes.append("An opponent is in riichi — push only with a clear plan.")
 
     score = max(0, min(100, score))
     opt.score = score
-    opt.recommended = score >= 60 or (yakuhai and sh_after <= sh_before)
+    opt.recommended = (
+        score >= 60 or (yakuhai and sh_after <= sh_before)
+    ) and yaku_ok
     return opt
 
 
@@ -288,16 +330,23 @@ def _analyze_chi(
     else:
         score -= 30
 
-    if _hand_is_closed(state) and sh_before > 1:
-        score -= 20
-        opt.notes.append("Opens a closed hand without locking in a yaku.")
+    # Chi always opens the hand and can never itself be yakuhai, so a chi
+    # with no open-yaku route is the classic "now I can't win" trap.
+    opens_hand = _hand_is_closed(state)
+    yaku_ok = (not opens_hand) or _open_yaku_path(state, tile_id)
+    if opens_hand and not yaku_ok:
+        score -= 30
+        opt.notes.append(
+            "Opens a closed hand with no yaku route — you would be unable "
+            "to win. Usually pass."
+        )
     if any_riichi:
         score -= 20
         opt.notes.append("An opponent is in riichi — opening the hand is risky.")
 
     score = max(0, min(100, score))
     opt.score = score
-    opt.recommended = score >= 65 and best_after <= sh_before - 1
+    opt.recommended = score >= 65 and best_after <= sh_before - 1 and yaku_ok
     return opt
 
 
