@@ -45,7 +45,32 @@ This repository is built in stages.
 
 ---
 
-## Quick start
+## Live web version (GitHub Pages)
+
+The whole app also runs as a **static site with no backend** — the
+pure-Python engine executes in the browser via
+[Pyodide](https://pyodide.org). The prebuilt site lives in `docs/`.
+
+To publish it for free on GitHub Pages (one-time, repo owner):
+
+> **Settings → Pages → Build and deployment → Source: _Deploy from a
+> branch_ → Branch: `main`, folder: `/docs` → Save.**
+
+After ~1 minute it is live at
+`https://<user>.github.io/MahjongAiScreen/`. First load downloads the
+Python runtime (~6 MB, then browser-cached); analysis afterwards is
+instant and fully offline.
+
+Rebuild the static bundle after any backend/frontend change:
+
+```bash
+python scripts/build_pages.py   # regenerates docs/
+```
+
+`backend/tests/test_web_bridge.py` asserts the in-browser bridge returns
+byte-identical results to the FastAPI server, so the two never diverge.
+
+## Quick start (local server)
 
 ```bash
 # 1. Create and activate a virtual environment (recommended)
