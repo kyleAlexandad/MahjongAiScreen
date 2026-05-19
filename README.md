@@ -1,5 +1,5 @@
 # MahjongAiScreen
-
+https://kylealexandad.github.io/MahjongAiScreen/
 A Japanese Riichi Mahjong AI assistant for **learning, hand analysis, and
 manual game tracking**. It does **not** auto-play any online client.
 
