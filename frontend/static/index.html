@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MahjongAiScreen — Hand Analyzer</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 data-i18n="app_title">MahjongAiScreen</h1>
+      <p class="subtitle" data-i18n="app_subtitle">Riichi Mahjong AI assistant</p>
+    </div>
+    <nav class="tabs" aria-label="Mode">
+      <button id="tabQuick"  class="tab is-active" data-view="quick" data-i18n="tab_quick">Quick analyze</button>
+      <button id="tabGame"   class="tab"           data-view="game"  data-i18n="tab_game">Game tracking</button>
+    </nav>
+    <div class="topbar-right">
+      <button id="langToggle" class="ghost-btn" type="button" data-i18n="lang_label">中文</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============================ QUICK VIEW ============================ -->
+    <section id="viewQuick" class="view is-active">
+      <section class="panel hand-panel">
+        <div class="panel-head">
+          <h2 data-i18n="your_hand">Your hand</h2>
+          <div class="hand-meta">
+            <span id="quickHandSize" class="hand-size">0 / 13</span>
+            <button id="quickClearBtn" class="ghost-btn" type="button" data-i18n="clear">Clear</button>
+          </div>
+        </div>
+        <div id="quickHandTiles" class="hand-tiles"></div>
+        <p class="hint" data-i18n="hand_hint_quick">A normal hand has 13 or 14 tiles. Click a tile in the hand to remove it.</p>
+      </section>
+
+      <section class="panel selector-panel">
+        <h2 data-i18n="tile_selector">Tile selector</h2>
+        <div id="quickTileSelector" class="tile-selector"></div>
+      </section>
+
+      <section class="panel analysis-panel">
+        <div class="panel-head">
+          <h2 data-i18n="analysis">Analysis</h2>
+          <button id="quickAnalyzeBtn" class="primary-btn" type="button" data-i18n="analyze">Analyze</button>
+        </div>
+        <div id="quickStatus" class="status-line"></div>
+        <div id="quickResult" class="analysis-result"></div>
+      </section>
+    </section>
+
+    <!-- ============================ GAME VIEW ============================= -->
+    <section id="viewGame" class="view">
+
+      <!-- ------------ SETUP SUB-VIEW ------------ -->
+      <section id="setupView" class="setup-view">
+        <header class="panel setup-panel">
+          <h2 data-i18n="setup_title">Set up the hand</h2>
+          <p class="hint" data-i18n="setup_hint">Configure round / seat / dora / starting hand.</p>
+
+          <div class="setup-row">
+            <span class="setup-row-label" data-i18n="round_wind">Round wind</span>
+            <div id="setupRoundWind" class="btn-group" data-group="roundWind">
+              <button class="btn-opt" type="button" data-value="1z" data-i18n="east">East</button>
+              <button class="btn-opt" type="button" data-value="2z" data-i18n="south">South</button>
+              <button class="btn-opt" type="button" data-value="3z" data-i18n="west">West</button>
+              <button class="btn-opt" type="button" data-value="4z" data-i18n="north">North</button>
+            </div>
+          </div>
+
+          <div class="setup-row">
+            <span class="setup-row-label" data-i18n="seat_wind">Your seat wind</span>
+            <div id="setupSeatWind" class="btn-group" data-group="seatWind">
+              <button class="btn-opt" type="button" data-value="1z" data-i18n="east_dealer">East (dealer)</button>
+              <button class="btn-opt" type="button" data-value="2z" data-i18n="south">South</button>
+              <button class="btn-opt" type="button" data-value="3z" data-i18n="west">West</button>
+              <button class="btn-opt" type="button" data-value="4z" data-i18n="north">North</button>
+            </div>
+          </div>
+
+          <div class="setup-row">
+            <span class="setup-row-label" data-i18n="dealer_inferred_label">Dealer</span>
+            <span id="setupDealerInferred" class="muted small"></span>
+          </div>
+
+          <div class="setup-row">
+            <span class="setup-row-label" data-i18n="honba">Honba</span>
+            <div id="setupHonba" class="counter-control">
+              <button class="ghost-btn" type="button" data-counter="honba" data-delta="-1">−</button>
+              <span class="counter-value" id="setupHonbaValue">0</span>
+              <button class="ghost-btn" type="button" data-counter="honba" data-delta="1">+</button>
+            </div>
+
+            <span class="setup-row-label" data-i18n="riichi_sticks">Riichi sticks</span>
+            <div id="setupRiichiSticks" class="counter-control">
+              <button class="ghost-btn" type="button" data-counter="riichiSticks" data-delta="-1">−</button>
+              <span class="counter-value" id="setupRiichiSticksValue">0</span>
+              <button class="ghost-btn" type="button" data-counter="riichiSticks" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="setup-block">
+            <div class="setup-block-head">
+              <h3 data-i18n="dora_indicators">Dora indicators</h3>
+              <button id="setupAddDoraBtn" class="ghost-btn" type="button" data-i18n="add_dora">+ Add indicator</button>
+            </div>
+            <div id="setupDoraTiles" class="hand-tiles small"></div>
+          </div>
+
+          <div class="setup-block">
+            <div class="setup-block-head">
+              <h3 data-i18n="starting_hand">Starting hand</h3>
+              <span id="setupHandSize" class="hand-size">0 / 13</span>
+              <button id="setupClearHandBtn" class="ghost-btn" type="button" data-i18n="clear">Clear</button>
+            </div>
+            <div id="setupHandTiles" class="hand-tiles"></div>
+            <div id="setupHandSelector" class="tile-selector compact"></div>
+          </div>
+
+          <div class="setup-actions">
+            <button id="setupStartBtn" class="primary-btn" type="button" disabled data-i18n="start_hand">Start hand</button>
+            <span id="setupStatus" class="status-line"></span>
+          </div>
+        </header>
+      </section>
+
+      <!-- ----------- TRACKING SUB-VIEW ----------- -->
+      <section id="trackingView" class="tracking-view" hidden>
+        <header class="panel round-bar">
+          <div class="round-bar-info">
+            <strong id="roundLabel">East 1</strong>
+            <span id="seatLabel"  class="muted"></span>
+            <span id="honbaLabel" class="muted"></span>
+          </div>
+          <div class="round-bar-dora">
+            <span class="muted small" data-i18n="dora_indicators">Dora indicators</span>
+            <div id="doraRow" class="hand-tiles small inline"></div>
+            <button id="addDoraBtn" class="ghost-btn" type="button" data-i18n="add_dora_kan">+ Indicator (kan)</button>
+          </div>
+          <div class="round-bar-actions">
+            <button id="undoBtn"     class="ghost-btn" type="button" disabled data-i18n="undo">Undo</button>
+            <button id="resetBtn"    class="ghost-btn" type="button"          data-i18n="reset_hand">Reset hand</button>
+            <button id="newHandBtn"  class="ghost-btn" type="button"          data-i18n="new_setup">New setup</button>
+          </div>
+        </header>
+
+        <div class="board">
+         <div class="table-area">
+          <!-- Opponents arranged as a real table: toimen top, kamicha left, shimocha right -->
+          <div class="opp-card opp-toimen" data-seat="2">
+            <div class="opp-head">
+              <strong>
+                <span data-i18n="toimen">Across (toimen)</span>
+                <span class="seat-wind-badge" data-wind-for-seat="2"></span>
+              </strong>
+              <div class="opp-head-actions">
+                <label class="riichi-toggle">
+                  <input type="checkbox" data-riichi-seat="2" />
+                  <span data-i18n="riichi">Riichi</span>
+                </label>
+                <button class="end-btn ron" type="button" data-end-action="ron" data-end-seat="2" data-i18n="win_ron">Ron</button>
+                <button class="end-btn tsumo" type="button" data-end-action="tsumo" data-end-seat="2" data-i18n="win_tsumo">Tsumo</button>
+                <button class="end-btn ankan" type="button" data-ankan-seat="2" data-i18n="call_ankan">Ankan</button>
+              </div>
+            </div>
+            <div class="opp-melds" data-melds-seat="2"></div>
+            <div class="opp-river hand-tiles small" data-river-seat="2"></div>
+            <div class="call-zones" data-zones-seat="2">
+              <div class="call-zone" data-call-type="chi" data-caller-seat="2"><span data-i18n="call_chi">Chi</span></div>
+              <div class="call-zone" data-call-type="pon" data-caller-seat="2"><span data-i18n="call_pon">Pon</span></div>
+              <div class="call-zone" data-call-type="kan" data-caller-seat="2"><span data-i18n="call_kan">Kan</span></div>
+            </div>
+          </div>
+
+          <div class="opp-card opp-kamicha" data-seat="3">
+            <div class="opp-head">
+              <strong>
+                <span data-i18n="kamicha">Left (kamicha)</span>
+                <span class="seat-wind-badge" data-wind-for-seat="3"></span>
+              </strong>
+              <div class="opp-head-actions">
+                <label class="riichi-toggle">
+                  <input type="checkbox" data-riichi-seat="3" />
+                  <span data-i18n="riichi">Riichi</span>
+                </label>
+                <button class="end-btn ron" type="button" data-end-action="ron" data-end-seat="3" data-i18n="win_ron">Ron</button>
+                <button class="end-btn tsumo" type="button" data-end-action="tsumo" data-end-seat="3" data-i18n="win_tsumo">Tsumo</button>
+                <button class="end-btn ankan" type="button" data-ankan-seat="3" data-i18n="call_ankan">Ankan</button>
+              </div>
+            </div>
+            <div class="opp-melds" data-melds-seat="3"></div>
+            <div class="opp-river hand-tiles small" data-river-seat="3"></div>
+            <div class="call-zones" data-zones-seat="3">
+              <div class="call-zone" data-call-type="chi" data-caller-seat="3"><span data-i18n="call_chi">Chi</span></div>
+              <div class="call-zone" data-call-type="pon" data-caller-seat="3"><span data-i18n="call_pon">Pon</span></div>
+              <div class="call-zone" data-call-type="kan" data-caller-seat="3"><span data-i18n="call_kan">Kan</span></div>
+            </div>
+          </div>
+
+          <div class="opp-card opp-shimocha" data-seat="1">
+            <div class="opp-head">
+              <strong>
+                <span data-i18n="shimocha">Right (shimocha)</span>
+                <span class="seat-wind-badge" data-wind-for-seat="1"></span>
+              </strong>
+              <div class="opp-head-actions">
+                <label class="riichi-toggle">
+                  <input type="checkbox" data-riichi-seat="1" />
+                  <span data-i18n="riichi">Riichi</span>
+                </label>
+                <button class="end-btn ron" type="button" data-end-action="ron" data-end-seat="1" data-i18n="win_ron">Ron</button>
+                <button class="end-btn tsumo" type="button" data-end-action="tsumo" data-end-seat="1" data-i18n="win_tsumo">Tsumo</button>
+                <button class="end-btn ankan" type="button" data-ankan-seat="1" data-i18n="call_ankan">Ankan</button>
+              </div>
+            </div>
+            <div class="opp-melds" data-melds-seat="1"></div>
+            <div class="opp-river hand-tiles small" data-river-seat="1"></div>
+            <div class="call-zones" data-zones-seat="1">
+              <div class="call-zone" data-call-type="chi" data-caller-seat="1"><span data-i18n="call_chi">Chi</span></div>
+              <div class="call-zone" data-call-type="pon" data-caller-seat="1"><span data-i18n="call_pon">Pon</span></div>
+              <div class="call-zone" data-call-type="kan" data-caller-seat="1"><span data-i18n="call_kan">Kan</span></div>
+            </div>
+          </div>
+
+          <!-- Center: turn indicator + tile selector + call bar -->
+          <section class="center-panel panel">
+            <div class="center-head">
+              <span id="turnIndicator" class="turn-indicator"></span>
+              <button id="advanceTurnBtn" class="ghost-btn" type="button" data-i18n="advance_turn_btn">Skip turn</button>
+            </div>
+            <div id="callBar" class="call-bar" hidden>
+              <span id="callBarLabel" class="call-bar-label"></span>
+              <div id="callRecommendation" class="call-recommendation"></div>
+              <div class="call-bar-buttons">
+                <button class="call-btn" data-call="chi"  type="button" data-i18n="call_chi">Chi</button>
+                <button class="call-btn" data-call="pon"  type="button" data-i18n="call_pon">Pon</button>
+                <button class="call-btn" data-call="kan"  type="button" data-i18n="call_kan">Kan</button>
+                <button class="call-btn" data-call="ron"  type="button" data-i18n="call_ron">Ron</button>
+                <button class="call-btn" data-call="pass" type="button" data-i18n="call_pass">Pass</button>
+                <button id="oppCalledBtn" class="call-btn ghost" type="button" data-i18n="opp_called_btn">Opponent called</button>
+              </div>
+              <div id="oppCallPicker" class="opp-call-picker" hidden></div>
+            </div>
+            <div id="centerSelector" class="tile-selector center-selector"></div>
+          </section>
+
+          <!-- User hand + river -->
+          <section class="user-area panel">
+            <div class="user-area-head">
+              <h2>
+                <span data-i18n="your_hand_label">Your hand</span>
+                <span class="seat-wind-badge" data-wind-for-seat="0"></span>
+              </h2>
+              <span id="trackingHandSize" class="hand-size">0 / 13</span>
+              <div class="user-actions">
+                <label class="riichi-toggle">
+                  <input type="checkbox" id="userRiichiToggle" />
+                  <span data-i18n="riichi">Riichi</span>
+                </label>
+                <button class="end-btn ron"   type="button" data-end-action="ron"   data-end-seat="0" data-i18n="win_ron">Ron</button>
+                <button class="end-btn tsumo" type="button" data-end-action="tsumo" data-end-seat="0" data-i18n="win_tsumo">Tsumo</button>
+                <button class="end-btn ankan" type="button" data-ankan-seat="0" data-i18n="call_ankan">Ankan</button>
+              </div>
+            </div>
+            <div id="trackingHandTiles" class="hand-tiles user-hand-tiles" aria-label="Your concealed hand"></div>
+            <div class="user-melds-row" id="userMeldsRow"></div>
+            <div class="call-zones" data-zones-seat="0">
+              <div class="call-zone" data-call-type="chi" data-caller-seat="0"><span data-i18n="call_chi">Chi</span></div>
+              <div class="call-zone" data-call-type="pon" data-caller-seat="0"><span data-i18n="call_pon">Pon</span></div>
+              <div class="call-zone" data-call-type="kan" data-caller-seat="0"><span data-i18n="call_kan">Kan</span></div>
+            </div>
+            <div class="user-river-wrap">
+              <span class="muted small" data-i18n="your_river">Your discards</span>
+              <div id="userRiver" class="hand-tiles small"></div>
+            </div>
+          </section>
+         </div><!-- /.table-area -->
+
+          <!-- Analysis panel -->
+          <aside class="panel analysis-panel-game">
+            <div class="panel-head">
+              <h2 data-i18n="ai_recommendation">AI recommendation</h2>
+              <button id="trackingAnalyzeBtn" class="primary-btn" type="button" data-i18n="analyze">Analyze</button>
+            </div>
+            <div id="trackingStatus" class="status-line"></div>
+            <div id="trackingResult" class="analysis-result"></div>
+          </aside>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- ============================ TILE PICKER ============================ -->
+  <div id="tilePicker" class="tile-picker-overlay" hidden>
+    <div class="tile-picker-modal">
+      <div class="tile-picker-head">
+        <h3 id="tilePickerTitle" data-i18n="pick_tile">Pick a tile</h3>
+        <button id="tilePickerClose" class="ghost-btn" type="button" data-i18n="close">Close</button>
+      </div>
+      <div id="tilePickerSelector" class="tile-selector compact"></div>
+    </div>
+  </div>
+
+  <!-- ============================ CHI SHAPE MODAL ========================= -->
+  <div id="chiShapeModal" class="tile-picker-overlay" hidden>
+    <div class="tile-picker-modal">
+      <div class="tile-picker-head">
+        <h3 data-i18n="chi_pick_shape">Pick the Chi shape</h3>
+        <button id="chiShapeClose" class="ghost-btn" type="button" data-i18n="cancel">Cancel</button>
+      </div>
+      <p id="chiShapeHint" class="muted small"></p>
+      <div id="chiShapeOptions" class="chi-shape-options"></div>
+    </div>
+  </div>
+
+  <!-- ============================ HAND-END MODAL ========================== -->
+  <div id="handEndModal" class="tile-picker-overlay" hidden>
+    <div class="tile-picker-modal">
+      <div class="tile-picker-head">
+        <h3 data-i18n="win_section_title">End of hand</h3>
+        <button id="handEndClose" class="ghost-btn" type="button" data-i18n="close">Close</button>
+      </div>
+      <p id="handEndSummary" class="explanation"></p>
+      <div class="setup-actions">
+        <button id="handEndNext"  class="primary-btn" type="button" data-i18n="next_hand">Next hand</button>
+        <button id="handEndReset" class="ghost-btn"   type="button" data-i18n="reset_hand">Reset hand</button>
+        <button id="handEndSetup" class="ghost-btn"   type="button" data-i18n="return_setup">Back to setup</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <small>
+      Tile artwork from
+      <a href="https://github.com/FluffyStuff/riichi-mahjong-tiles" target="_blank" rel="noopener">FluffyStuff/riichi-mahjong-tiles</a>
+      (CC BY 4.0). For learning use only — this app does not auto-play any online client.
+    </small>
+  </footer>
+
+  <script src="/static/i18n.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

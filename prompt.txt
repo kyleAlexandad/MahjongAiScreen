@@ -1,0 +1,254 @@
+I want to build a Japanese Riichi Mahjong AI assistant in Python with a user-friendly web app interface.
+
+This project is for learning, hand analysis, and simulated game tracking only. It is not intended to auto-play in Mahjong Soul or any online game.
+
+The project should have two major parts:
+
+Part 1: Riichi Mahjong AI Engine
+
+Build the AI engine in three stages.
+
+Stage 1: Tile Efficiency Module
+
+Implement functions to:
+- Represent Mahjong tiles and hands.
+- Calculate shanten number.
+- Calculate ukeire / effective tiles.
+- Evaluate every possible discard.
+- Recommend the best discard based on tile efficiency.
+- Return a clear explanation for the recommendation.
+
+Stage 2: Defense Module
+
+Implement functions to:
+- Detect genbutsu against each opponent.
+- Estimate suji safety.
+- Estimate kabe safety.
+- Assign a danger score to each discard candidate.
+- Combine danger score with tile-efficiency score.
+- Explain defensive reasoning in a beginner-friendly way.
+
+Stage 3: Call and Riichi Decision Module
+
+Implement functions to decide:
+- Whether to chi.
+- Whether to pon.
+- Whether to kan.
+- Whether to declare riichi.
+
+The decision should consider:
+- Current shanten number.
+- Hand value.
+- Wait quality.
+- Remaining tiles.
+- Visible tiles.
+- Opponent riichi status.
+- Round wind.
+- Seat wind.
+- Honba count.
+- Dora indicators.
+- Current game situation.
+
+Part 2: User-Friendly Web App
+
+Build a clean, simple, and easy-to-use web app for manually tracking and simulating a Riichi Mahjong hand.
+
+The web app should use tile images from this GitHub repository as visual assets:
+
+https://github.com/fluffystuff/riichi-mahjong-tiles
+
+The app should download or include all tile images from that repository and use them to display the user’s hand, discards, dora indicators, and visible tiles.
+
+Core Web App Requirements:
+
+1. Initial Setup Screen
+
+The user should be able to input:
+- Their starting hand.
+- Round wind.
+- Seat wind.
+- Honba count.
+- Dora indicator(s).
+- Optional: dealer position.
+- Optional: starting points.
+- Optional: whether the hand is east/south round.
+
+The UI for entering tiles should be very smooth and not tedious. Instead of requiring text input only, provide a visual tile selector where the user can click tile images to add tiles to their hand, dora indicators, and other fields.
+
+2. Game Simulation / Tracking Screen
+
+After setup, the app should start a simulated hand-tracking interface.
+
+The user manually inputs each turn’s information, including:
+- Opponent discards.
+- Opponent calls: chi, pon, kan.
+- User’s drawn tile.
+- User’s discarded tile.
+- Riichi declarations.
+- New dora indicators after kan.
+- Any visible tile changes.
+
+The app should maintain the full current game state:
+- User hand.
+- User drawn tile.
+- User discards.
+- Opponent discards.
+- Opponent open melds.
+- Visible tiles.
+- Remaining tile estimates.
+- Dora indicators.
+- Round wind.
+- Seat wind.
+- Honba count.
+- Riichi status of each player.
+
+3. AI Analysis on User Draw
+
+Whenever the user inputs their drawn tile, the app should call the AI engine and display an analysis panel.
+
+The analysis should include:
+- Current shanten number.
+- Recommended discard.
+- Effective tiles / ukeire.
+- Alternative discard candidates.
+- Tile-efficiency explanation.
+- Defensive danger score for each discard.
+- Genbutsu / suji / kabe notes when relevant.
+- Riichi recommendation if the hand is tenpai.
+- Call recommendation when a call opportunity is manually entered.
+- A short beginner-friendly explanation of what the AI is thinking.
+
+The AI should not automatically play the game. It only gives recommendations and explanations. The user should still manually choose and record the actual discard.
+
+4. Interaction Flow
+
+The web app should be designed so the user can continue the hand smoothly until:
+- The hand ends by win, draw, or abortive draw.
+- The user clicks reset.
+- The user starts a new hand.
+
+The user should be able to:
+- Add a draw.
+- Select a discard.
+- Record opponent actions.
+- Undo the last action.
+- Reset the current hand.
+- Start a new hand.
+- View current visible tiles.
+- View each player’s discard river.
+- View open melds.
+
+5. UI / UX Requirements
+
+The UI should be clean, readable, and beginner-friendly.
+
+Important design goals:
+- Do not make the user type tile codes repeatedly.
+- Use visual tile images as much as possible.
+- Allow fast tile entry through click-based tile selectors.
+- Display the user’s hand in sorted order.
+- Clearly separate the user hand, drawn tile, discards, opponents, dora indicators, and AI recommendation panel.
+- Keep the layout simple and uncluttered.
+- Make the interface responsive enough for normal laptop screens.
+- Use clear labels and tooltips for beginner users.
+- Provide compact but readable explanations.
+- Include an undo button because manual tracking mistakes are common.
+- Avoid complicated menus.
+- Prioritize smooth operation over fancy visuals.
+
+6. Suggested Technical Stack
+
+Please propose a practical tech stack. A good default would be:
+- Backend: Python with FastAPI.
+- AI engine: pure Python modules.
+- Frontend: React or Next.js.
+- Styling: Tailwind CSS.
+- Tile assets: downloaded from the riichi-mahjong-tiles GitHub repository.
+- State management: simple React state or Zustand.
+- API communication: frontend calls backend endpoints for AI analysis.
+
+But you may suggest a better stack if appropriate.
+
+7. Suggested Project Structure
+
+Please design a clean project structure such as:
+
+- backend/
+  - app/
+    - main.py
+    - api/
+    - mahjong/
+      - tiles.py
+      - hand.py
+      - shanten.py
+      - ukeire.py
+      - defense.py
+      - calls.py
+      - scoring.py
+      - analyzer.py
+    - tests/
+- frontend/
+  - src/
+    - components/
+      - TileSelector.tsx
+      - HandInput.tsx
+      - GameBoard.tsx
+      - PlayerRiver.tsx
+      - MeldDisplay.tsx
+      - DoraPanel.tsx
+      - AnalysisPanel.tsx
+      - ActionLog.tsx
+    - pages/ or app/
+    - state/
+    - utils/
+  - public/
+    - tiles/
+
+8. API Requirements
+
+Please define backend API endpoints such as:
+- POST /analyze-hand
+- POST /calculate-shanten
+- POST /calculate-ukeire
+- POST /evaluate-discard
+- POST /evaluate-call
+- POST /evaluate-riichi
+- POST /update-game-state
+
+For each endpoint, describe:
+- Request format.
+- Response format.
+- Example JSON input.
+- Example JSON output.
+
+9. Implementation Plan
+
+Please implement this step by step.
+
+Before writing code, first provide:
+1. The overall architecture.
+2. The frontend and backend responsibilities.
+3. The data model for tiles, hands, melds, discards, players, and game state.
+4. The user flow from initial setup to hand completion.
+5. The AI analysis flow.
+6. How tile images will be downloaded and mapped to tile IDs.
+7. Testing strategy.
+
+After that, start implementing the project in stages.
+
+Start with:
+- Tile representation.
+- Shanten calculation.
+- Ukeire calculation.
+- Basic discard recommendation.
+- A minimal web UI where the user can input a hand visually and receive a discard recommendation.
+
+Then expand to:
+- Defense logic.
+- Full game tracking.
+- Opponent discards and calls.
+- Riichi/call decisions.
+- Undo/reset/new hand.
+- Better UI polish.
+
+Please write clean, readable, well-structured code. Add comments where helpful. Include tests for the Mahjong logic.
